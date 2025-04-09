@@ -1,0 +1,72 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/hub-xp-test-store
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=us-east-1
+      - S3_ENDPOINT=http://localstack:4566
+      - SNS_ENDPOINT=http://localstack:4566
+      - SNS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:NewOrderTopic
+    depends_on:
+      - mongo
+      - localstack
+    volumes:
+      - ./backend:/app
+    command: npm run start:dev
+  mongo:
+    image: mongo:latest
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+  localstack:
+    image: localstack/localstack
+    ports:
+      - '4566:4566'
+    environment:
+      - SERVICES=s3,sns
+      - DEFAULT_REGION=us-east-1
+    volumes:
+      #- localstack-data:/tmp/localstack
+      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+    command: ["sh", "-c", "chmod +x /etc/localstack/init/ready.d/init-aws.sh && localstack start"]
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - '3001:3000'
+    
+    volumes:
+      - ./frontend:/app
+    command: npm run dev
+
+  lambda:
+    build:
+      context: ./lambda
+      dockerfile: Dockerfile
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/hub-xp-test-store
+      - SNS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:NewOrderTopic
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=us-east-1
+      - S3_ENDPOINT=http://localstack:4566
+      - SNS_ENDPOINT=http://localstack:4566
+    depends_on:
+      - mongo
+      - localstack
+    volumes:
+      - ./lambda:/app
+      - ~/.serverlessrc:/root/.serverlessrc
+    command: npx serverless offline
+
+volumes:
+  mongo-data:
+  localstack-data:

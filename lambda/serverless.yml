@@ -1,0 +1,34 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: devvock
+# "service" is the name of this project. This will also be added to your AWS resource names.
+service: reports
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  environment:
+    MONGODB_URI: ${env:MONGODB_URI, 'mongodb://localhost:27017/hub-xp-test-store'}
+    SNS_TOPIC_ARN: ${env:SNS_TOPIC_ARN, 'arn:aws:sns:us-east-1:000000000000:NewOrderTopic'}
+
+functions:
+  provideReport:
+    handler: handler.provideReport
+    events:
+      - schedule: rate(1 day)
+  notifyNewOrder:
+    handler: handler.notifyNewOrder
+    events:
+      - sns:
+          topicName: NewOrderTopic
+          displayName: New Order Notifications
+    environment:
+      SNS_TOPIC_ARN: !Ref NewOrderTopic
+resources:
+  Resources:
+    NewOrderTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: NewOrderTopic
+plugins:
+  - serverless-offline
